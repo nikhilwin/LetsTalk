@@ -265,8 +265,8 @@ function App() {
         <div className="landing-page">
           <div className="lumi-title-container">
             <div className="logo-wrapper">
-              <div className="logo-img-large" style={{background: 'linear-gradient(135deg, #0891b2, #2563eb)'}}></div>
-              <h1 className="lumi-logo">IC.</h1>
+              <img src="/logo.png" alt="LetsTalk Logo" className="logo-img-large" />
+              <h1 className="lumi-logo">LetsTalk</h1>
             </div>
             <div className="lumi-subtitle">
               INSTANT <span className="dot">●</span> CHAT
@@ -322,8 +322,8 @@ function App() {
         {/* Header */}
         <header className="chat-header">
           <div className="header-logo-container">
-             <div className="logo-img-small" style={{background: 'linear-gradient(135deg, #0891b2, #2563eb)'}}></div>
-             <span className="header-logo">IC.</span>
+             <img src="/logo.png" alt="LetsTalk" className="logo-img-small" />
+             <span className="header-logo">LetsTalk</span>
           </div>
           
           <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
