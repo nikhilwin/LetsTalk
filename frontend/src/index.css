@@ -15,7 +15,9 @@ body {
   color: #fff;
   overflow: hidden;
   height: 100vh;
+  height: 100svh;
   width: 100vw;
+  touch-action: manipulation;
 }
 
 @keyframes gradientBG {
@@ -574,7 +576,11 @@ body {
   }
   
   .chat-input-pill input {
-    font-size: 0.8rem;
+    font-size: 16px;
+  }
+  
+  .form-input {
+    font-size: 16px;
   }
   
   .header-logo {
