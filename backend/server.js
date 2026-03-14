@@ -50,7 +50,7 @@ io.on('connection', (socket) => {
     const newUserEntry = {
       id: socket.id,
       name: name,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      joinedAt: new Date().toISOString()
     };
     
     // Remove if they are already in the recent list (e.g. they reconnected) to avoid duplicates

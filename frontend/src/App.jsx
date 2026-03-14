@@ -129,7 +129,8 @@ function App() {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       
-      setMessages((prev) => [...prev, msgData]);
+      
+      // Removed: setMessages((prev) => [...prev, msgData]); (Server echo handles this now)
       socket.emit('chat_message', msgData);
       setInputValue('');
       inputRef.current?.focus();
@@ -160,7 +161,7 @@ function App() {
           senderName: myName,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
-        setMessages((prev) => [...prev, msgData]);
+        // Removed: setMessages((prev) => [...prev, msgData]);
         socket.emit('chat_message', msgData);
       };
       reader.readAsDataURL(file);
@@ -198,7 +199,7 @@ function App() {
               senderName: myName,
               timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             };
-            setMessages((prev) => [...prev, msgData]);
+            // Removed: setMessages((prev) => [...prev, msgData]);
             socket.emit('chat_message', msgData);
           };
           reader.readAsDataURL(audioBlob);
@@ -484,7 +485,9 @@ function App() {
                 {recentUsers.map((user, i) => (
                   <li key={i} style={{padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)'}}>
                     <span style={{fontSize: '0.875rem'}}>{user.name}</span>
-                    <span style={{fontSize: '0.75rem', color: '#9ca3af'}}>{user.timestamp}</span>
+                    <span style={{fontSize: '0.75rem', color: '#9ca3af'}}>
+                      {user.joinedAt ? new Date(user.joinedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                    </span>
                   </li>
                 ))}
               </ul>
