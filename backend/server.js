@@ -125,6 +125,49 @@ io.on('connection', (socket) => {
     handleDisconnectOrStop(socket);
   });
 
+  // User requests a specific chat (Direct Message)
+  socket.on('request_chat_with', (targetSocketId) => {
+    // Basic validation
+    if (targetSocketId === socket.id) return;
+    if (socketRoomMap.has(socket.id)) return;
+
+    const targetSocket = io.sockets.sockets.get(targetSocketId);
+    if (targetSocket) {
+      // Check if target is already in a chat
+      if (socketRoomMap.has(targetSocketId)) {
+        socket.emit('chat_error', { message: "User is already in a chat." });
+        return;
+      }
+
+      // If they were waiting in queue, remove them
+      if (waitingUser && (waitingUser.id === socket.id || waitingUser.id === targetSocketId)) {
+        waitingUser = null;
+      }
+
+      const roomName = `room-${socket.id}-${targetSocketId}`;
+      socket.join(roomName);
+      targetSocket.join(roomName);
+
+      socketRoomMap.set(socket.id, roomName);
+      socketRoomMap.set(targetSocketId, roomName);
+
+      const targetUserName = connectedUsers.get(targetSocketId) || "Stranger";
+      const currentUserName = connectedUsers.get(socket.id) || "Stranger";
+
+      socket.emit('chat_start', {
+        message: `You've started a direct chat with ${targetUserName}.`,
+        strangerName: targetUserName
+      });
+
+      targetSocket.emit('chat_start', {
+        message: `${currentUserName} wants to chat with you!`,
+        strangerName: currentUserName
+      });
+    } else {
+      socket.emit('chat_error', { message: "User is no longer online." });
+    }
+  });
+
   socket.on('disconnect', () => {
     onlineCount--;
     io.emit('online_count', onlineCount);

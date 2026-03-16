@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { X, Send, Image as ImageIcon, Users, Clock, Mic, Square } from 'lucide-react';
+import { X, Send, Image as ImageIcon, Users, Clock, Mic, Square, MessageSquare, Phone, PhoneOff } from 'lucide-react';
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 const socket = io(backendUrl);
@@ -21,6 +21,7 @@ function App() {
   const [stopState, setStopState] = useState('idle'); // 'idle' | 'confirming' | 'stopped'
   const [isTyping, setIsTyping] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isCalling, setIsCalling] = useState(false);
   
   // Sidebar States
   const [onlineCount, setOnlineCount] = useState(0);
@@ -35,6 +36,9 @@ function App() {
   
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+  
+  const sendSound = useRef(new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3'));
+  const receiveSound = useRef(new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3'));
 
   useEffect(() => {
     if (isDarkMode) {
@@ -69,6 +73,9 @@ function App() {
     socket.on('chat_message', (msg) => {
       setMessages((prev) => [...prev, msg]);
       setIsTyping(false); 
+      if (msg.senderId !== socket.id) {
+        receiveSound.current.play().catch(e => console.log("Audio play failed:", e));
+      }
     });
 
     socket.on('typing', () => {
@@ -82,6 +89,11 @@ function App() {
       setStopState('stopped'); 
       setStrangerName('Stranger');
       setMessages((prev) => [...prev, { text: data.message, isSystem: true }]);
+    });
+
+    socket.on('chat_error', (data) => {
+      alert(data.message);
+      setIsLooking(false);
     });
 
     return () => {
@@ -132,6 +144,7 @@ function App() {
       
       // Removed: setMessages((prev) => [...prev, msgData]); (Server echo handles this now)
       socket.emit('chat_message', msgData);
+      sendSound.current.play().catch(e => console.log("Audio play failed:", e));
       setInputValue('');
       inputRef.current?.focus();
     }
@@ -231,6 +244,20 @@ function App() {
       setIsRecording(false);
     }
     socket.emit('start_chat');
+    setIsCalling(false);
+  };
+
+  const handleToggleCall = () => {
+    if (!isConnected || isLooking) return;
+    
+    if (isCalling) {
+      setMessages(prev => [...prev, { text: "Call ended.", isSystem: true }]);
+      setIsCalling(false);
+    } else {
+      setMessages(prev => [...prev, { text: `Calling ${strangerName}... (Voice chat enabled)`, isSystem: true }]);
+      setIsCalling(true);
+      // In a real app, this would trigger WebRTC signaling
+    }
   };
 
   const handleStop = () => {
@@ -258,6 +285,17 @@ function App() {
       mediaRecorderRef.current?.stop();
       setIsRecording(false);
     }
+  };
+
+  const requestChat = (targetId) => {
+    if (isConnected || isLooking) {
+      socket.emit('stop_chat');
+    }
+    setMessages([]);
+    setIsConnected(false);
+    setIsLooking(true);
+    setStopState('idle');
+    socket.emit('request_chat_with', targetId);
   };
 
   if (appState === 'naming') {
@@ -327,10 +365,16 @@ function App() {
              <span className="header-logo">LetsTalk</span>
           </div>
           
-          <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
-            <span style={{color: '#9ca3af', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-               <Users size={16} /> {onlineCount} Online
-            </span>
+          
+          <div style={{display: 'flex', gap: '0.5rem', alignItems: 'center'}}>
+            <button 
+              className={`icon-btn ${isCalling ? 'active-call' : ''}`}
+              onClick={handleToggleCall}
+              disabled={!isConnected || isLooking}
+              title={isCalling ? "End Call" : "Start Voice Call"}
+            >
+              {isCalling ? <PhoneOff size={20} color="#ef4444" /> : <Phone size={20} />}
+            </button>
             <button className="exit-btn" onClick={() => {
                 if (isConnected || isLooking) socket.emit('stop_chat');
                 setAppState('naming');
@@ -339,6 +383,21 @@ function App() {
             </button>
           </div>
         </header>
+
+        {/* Online Bar Top */}
+        <div className="online-bar-top">
+          <div className="online-bar-label">
+            <Users size={14} /> <span>{onlineCount} Online</span>
+          </div>
+          <div className="online-users-scroll">
+            {recentUsers.slice(0, 10).map((user, i) => (
+              <div key={i} className="online-user-tag" onClick={() => user.name !== myName && requestChat(user.id)}>
+                <div className="status-dot"></div>
+                {user.name}
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Profiles Area & Sidebar toggle */}
         <div style={{display: 'flex', flex: 1, overflow: 'hidden'}}>
@@ -363,6 +422,12 @@ function App() {
                   {stopState === 'confirming' ? 'Really? (ESC)' : (!isConnected && !isLooking ? 'Next (ESC)' : 'Stop (ESC)')}
                 </button>
               </div>
+            </div>
+
+            <div className="chat-bg-blobs">
+              <div className="blob blob-1"></div>
+              <div className="blob blob-2"></div>
+              <div className="blob blob-3"></div>
             </div>
 
             <div className="chat-log">
@@ -451,50 +516,6 @@ function App() {
               </div>
             </div>
           </div>
-
-          {/* Right Sidebar Lists */}
-          <div style={{
-            flex: 1, 
-            minWidth: '250px', 
-            maxWidth: '300px', 
-            borderLeft: '1px solid rgba(255,255,255,0.1)',
-            background: 'rgba(15, 23, 42, 0.4)',
-            backdropFilter: 'blur(10px)',
-            display: 'flex',
-            flexDirection: 'column'
-          }} className="sidebar-hide-mobile">
-            
-            <div style={{flex: 1, overflowY: 'auto', borderBottom: '1px solid rgba(255,255,255,0.1)'}}>
-              <h3 style={{padding: '1rem', fontSize: '0.875rem', color: '#22d3ee', display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)'}}>
-                <Users size={16}/> Active Users
-              </h3>
-              <ul style={{listStyle: 'none', padding: 0, margin: 0}}>
-                {activeUsers.map((user, i) => (
-                  <li key={i} style={{padding: '0.75rem 1rem', fontSize: '0.875rem', borderBottom: '1px solid rgba(255,255,255,0.05)'}}>
-                    {user} {user === myName && <span style={{color: '#9ca3af', fontSize: '0.75rem'}}>(You)</span>}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div style={{flex: 1, overflowY: 'auto'}}>
-              <h3 style={{padding: '1rem', fontSize: '0.875rem', color: '#a78bfa', display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)'}}>
-                <Clock size={16}/> Recent Joins
-              </h3>
-              <ul style={{listStyle: 'none', padding: 0, margin: 0}}>
-                {recentUsers.map((user, i) => (
-                  <li key={i} style={{padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)'}}>
-                    <span style={{fontSize: '0.875rem'}}>{user.name}</span>
-                    <span style={{fontSize: '0.75rem', color: '#9ca3af'}}>
-                      {user.joinedAt ? new Date(user.joinedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-          </div>
-
         </div>
       </div>
     </div>
